@@ -14,5 +14,7 @@
     "--background-index",
     "--query-driver=**",
     "--compile-commands-dir=e:\\cvvv\\ES32_project\\system_project\\wifi_sniffer\\build"
-  ]
+  ],
+  "idf.flashType": "UART",
+  "idf.portWin": "COM10"
 }
