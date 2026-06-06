@@ -3,6 +3,7 @@
 #include "esp_event.h"
 #include "esp_mac.h"
 #include "nvs_flash.h"
+#include "esp_timer.h"
 
 
 
@@ -17,6 +18,18 @@ typedef struct {
 } ieee80211_frame_header_t;
 #pragma pack()
 
+static uint8_t channel =1;
+
+void change_channel(void* arg) // a task for change channel every 200ms
+{
+    esp_wifi_set_channel(channel,WIFI_SECOND_CHAN_NONE);
+    channel =(channel % 13 )+1;
+    vTaskDelay(pdMS_TO_TICKS(200));
+}
+
+
+
+
 
 void sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)
 {
@@ -30,7 +43,7 @@ void sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)
     ieee80211_frame_header_t *hdr =(ieee80211_frame_header_t *)pkt->payload;
 
     
-    
+    uint8_t channle= pkt->rx_ctrl.channel;
     uint8_t frame_type = (hdr->frame_ctrl & 0x000C) >>2;
     uint8_t frame_subtype = (hdr->frame_ctrl & 0x00F0) >>4;
     if (frame_type == 0 && frame_subtype == 8)
@@ -48,13 +61,13 @@ void sniffer_cb(void *buf, wifi_promiscuous_pkt_type_t type)
                  printf("To: %02X:%02X:%02X:%02X:%02X:%02X, SSID: ",hdr->addr1[0], hdr->addr1[1], hdr->addr1[2],hdr->addr1[3], hdr->addr1[4], hdr->addr1[5]);
                 if (tag_len == 0)
                 {
-                    printf("(hidden)\n");
+                    printf("(hidden) CH:%d\n",channle);
                 }
                 else
                 {
                     for (int i = 0; i < tag_len; i++)
                         printf("%c", ie[2 + i]);
-                    printf("\n");
+                    printf(" ,CH:%d\n",channle);
                 }
                 break;
             }
@@ -77,4 +90,11 @@ void init_sniffer()
     esp_wifi_set_promiscuous_rx_cb(sniffer_cb);//set callbacke function
     esp_wifi_set_promiscuous(true);//start sniffer mode
 
+    //create timer for change_channel
+    const esp_timer_create_args_t arg ={
+        .callback=change_channel,
+    };
+    esp_timer_handle_t timer_handle;
+    esp_timer_create(&arg,&timer_handle);
+    esp_timer_start_periodic(timer_handle,200000);
 }
